@@ -1,0 +1,4 @@
+EXIT_FLAG = False
+PAUSE_FLAG = True
+COOP_FLAG = False
+COOP_POS = 0  # 0-3
