@@ -54,4 +54,4 @@ if __name__ == "__main__":
         one_lvl_spam=not args.clearance, current_lvl=args.lvl
     )
     for res in resaults:
-        logger.debug(res)
+        logger.debug(f"{res}:{resaults[res]}")
