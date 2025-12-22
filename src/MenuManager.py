@@ -72,8 +72,10 @@ class MenuManager:
                 sleep(5)
                 self._battle_manager.set_cycle_start_time()
                 self.war_results = self._battle_manager.run_main_loop(current_lvl)
-                self._wins_count += 1
-                self._defeats_count += 1
+                if war_results["win_flag"]:
+                    self._wins_count += 1
+                if war_results["defeat_flag"]:
+                    self._defeats_count += 1
                 self.war_results["wins_count"] = self._wins_count
                 self.war_results["defeats_count"] = self._defeats_count
                 if var.EXIT_FLAG:
