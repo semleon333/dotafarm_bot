@@ -294,9 +294,8 @@ class BattleManager:
         click(
             self._inventory_slots_click_positions[1, 0],
             clicks=2,
-            interval=0.1,
+            interval=0.05,
             button="SECONDARY",
-            duration=0.5,
         )  # get swap-card in courier
         while True:
             if var.EXIT_FLAG:
