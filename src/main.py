@@ -24,7 +24,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def on_press(key):
+def on_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
     try:
         if key == keyboard.Key.esc:
             logger.debug("Exit")

@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from sys import exit
 from time import sleep, time
 
 import cv2
@@ -9,14 +8,14 @@ from pyautogui import pixel, press, screenshot
 
 import var
 from data import CardData, Point, SummonData, menu_data
-from functions import click, click_slow
+from functions import click
 from scanner import scanner_instance
 
 
 @dataclass
 class BattleManager:
     scanner = scanner_instance
-    summon_data: list = field(default_factory=list)
+    summon_data: list[SummonData] = field(default_factory=list[SummonData])
     _menu_data = menu_data
 
     _bottle_use: int = 0
@@ -28,7 +27,7 @@ class BattleManager:
     _wood: int = 0
     _kills: int = 0
     _branch_lvl: int = 1  # 1, 2, ..., 9
-    _branch_lvl_plus: int = 0  # +1, +2, ...
+    _branch_lvl_plus: int = 0  # 0, +1, +2, +3, +4, +5, ->up
     _branch_cost: tuple[int, ...] = (
         53,
         200,
@@ -56,14 +55,33 @@ class BattleManager:
     #
     HOTKEY_00: str = "z"
     #
-    _inventory_slots_click_positions: dict = field(default_factory=dict)
-    main_cards: dict[tuple[int, int], CardData] = field(default_factory=dict)
-    main_cards_bottom: dict[tuple[int, int], CardData] = field(default_factory=dict)
-    courier_cards: dict[tuple[int, int], CardData] = field(default_factory=dict)
-    courier_cards_bottom: dict[tuple[int, int], CardData] = field(default_factory=dict)
-    all_main_cards: dict[tuple[int, int], CardData] = field(default_factory=dict)
+    _inventory_slots_click_positions: dict[tuple[int, int], Point] = field(
+        default_factory=dict[tuple[int, int], Point]
+    )
+    main_cards: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    main_cards_bottom: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    courier_cards: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    courier_cards_bottom: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    all_main_cards: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    _cards_buying_count: dict[int, int] = field(default_factory=dict[int, int])
 
     def __post_init__(self):
+        self._cards_buying_count = {
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+        }
         self.summon_data = [
             SummonData("resource", Point(450, 860), (221, 181, 11)),
             SummonData("magic_bottle", Point(530, 860), (4, 233, 251), 8),
@@ -168,7 +186,7 @@ class BattleManager:
                 and self._gold > self._branch_cost[self._branch_lvl - 1]
                 and not self._check_death()
             ):
-                logger.debug(f"{self._branch_lvl}.{self._branch_lvl_plus}")
+                logger.debug(f"->{self._branch_lvl}.{self._branch_lvl_plus}")
                 press(self.HOTKEY_00)
                 self._branch_lvl_plus += 1
                 self._gold -= self._branch_cost[self._branch_lvl - 1]
@@ -184,7 +202,7 @@ class BattleManager:
             self._branch_lvl_plus += 1
             self._gold -= self._branch_cost[self._branch_lvl - 1]
         logger.debug(
-            f" -> branch: {self._branch_lvl}.{self._branch_lvl_plus}, gold: {self._gold}"
+            f" --> branch: {self._branch_lvl}.{self._branch_lvl_plus}, gold: {self._gold}"
         )
 
     def _manage_summon_bar(self) -> None:
@@ -200,53 +218,82 @@ class BattleManager:
             logger.debug(f"count= {summon.summon_count}")
 
     def _manage_main_cards(self) -> None:
-        cards = self.all_main_cards
-        runtime = self._cycle_runtime
-        gold = self._gold
-        _cards_shop_pos = self._cards_shop_positions
-        # logger.debug(f"\n\t{cards[0,1].stars}\t{cards[0,2].stars}\n{cards[1,0].stars}\t{cards[1,1].stars}\t{cards[1,2].stars}\n{cards[2,0].stars}\t{cards[2,1].stars}\t{cards[2,2].stars}")
-        card_stars = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-        for card in cards:
-            match cards[card].stars:
-                case 0:
-                    card_stars[0] += 1
+        def final_buying_cards(self: BattleManager):
+            logger.debug(f"card_count_by_stars: {card_count_by_stars}")
+            match card_count_by_stars[stars]:
                 case 1:
-                    card_stars[1] += 1
+                    if self._gold > price1 + price2:
+                        click(self._cards_shop_positions[stars - 1])
+                        click(self._cards_shop_positions[stars - 1])
+                        self._cards_buying_count[stars] += 2
                 case 2:
-                    card_stars[2] += 1
+                    if self._gold > price1:
+                        click(self._cards_shop_positions[stars - 1])
+                        self._cards_buying_count[stars] += 1
+                case _:
+                    pass
+
+        price_by_star = {1: 500, 2: 2000, 3: 8000, 4: 32000}
+        # цены на карты: i in range(n)
+        # 1: 500*(i+1)
+        # 2: 2000 + 2000*i
+        # 3: 8000 + 8000*i
+        # 4: 32000 + 32000*i
+
+        # logger.debug(f"\n\t{cards[0,1].stars}\t{cards[0,2].stars}\n{cards[1,0].stars}\t{cards[1,1].stars}\t{cards[1,2].stars}\n{cards[2,0].stars}\t{cards[2,1].stars}\t{cards[2,2].stars}")
+        card_count_by_stars = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        for card in self.all_main_cards:
+            match self.all_main_cards[card].stars:
+                case 0:
+                    card_count_by_stars[0] += 1
+                case 1:
+                    card_count_by_stars[1] += 1
+                case 2:
+                    card_count_by_stars[2] += 1
                 case 3:
-                    card_stars[3] += 1
+                    card_count_by_stars[3] += 1
                 case 4:
-                    card_stars[4] += 1
+                    card_count_by_stars[4] += 1
                 case 5:
-                    card_stars[5] += 1
+                    card_count_by_stars[5] += 1
+                case _:
+                    pass
 
-        if runtime > 2 * 60:
-            if 0 < card_stars[1] < 3 and gold > 1000:
-                for i in range(3 - card_stars[1]):
-                    click(_cards_shop_pos[0])
+        logger.debug(f"card_count_by_stars: {card_count_by_stars}")
 
-        if runtime > 10 * 60:  # 12
-            if 1 < card_stars[2] < 3 and gold > 8000:
-                for i in range(3 - card_stars[1]):
-                    click(_cards_shop_pos[1])
+        if self._cycle_runtime > 2 * 60:
+            stars = 1
+            price1 = self._cards_buying_count[stars] * price_by_star[stars]
+            price2 = price1 + price1
+            final_buying_cards(self)
 
-        if runtime > 18 * 60:  # 20
-            if card_stars[3] == 1 and gold > 40000:
-                click(
-                    _cards_shop_pos[2],
-                    clicks=2,
-                    interval=1,
-                    duration=0.5,
-                )
-            if card_stars[3] == 2 and gold > 20000:
-                click(_cards_shop_pos[2])
+        if self._cycle_runtime > 10 * 60:  # 12
+            stars = 2
+            price1 = self._cards_buying_count[stars] * price_by_star[stars]
+            if self._cards_buying_count[stars] > 0:
+                price2 = self._cards_buying_count[stars] * price_by_star[stars] + price1
+            else:
+                price2 = price1 + price1
+            final_buying_cards(self)
 
-        if runtime > 20 * 60:  # 25
-            if card_stars[0] > 4 and gold > 32000:
-                click(_cards_shop_pos[3])
-            if card_stars[0] > 1 and gold > 64000 and self._branch_lvl == 9:
-                click(_cards_shop_pos[3])
+        if self._cycle_runtime > 18 * 60:  # 20
+            stars = 3
+            price1 = self._cards_buying_count[stars] * price_by_star[stars]
+            if self._cards_buying_count[stars] > 0:
+                price2 = self._cards_buying_count[stars] * price_by_star[stars] + price1
+            else:
+                price2 = price1 + price1
+            final_buying_cards(self)
+
+        if self._cycle_runtime > 20 * 60:  # 25
+            stars = 4
+            price1 = self._cards_buying_count[stars] * price_by_star[stars]
+            if self._cards_buying_count[stars] > 0:
+                price2 = self._cards_buying_count[stars] * price_by_star[stars] + price1
+            else:
+                price2 = price1 + price1
+            if card_count_by_stars[0] > 1:
+                final_buying_cards(self)
 
     def _check_defeat(self, current_lvl: str) -> None:
         if (
@@ -278,7 +325,7 @@ class BattleManager:
         else:
             click(Point(1600, 530), button="SECONDARY")
 
-    def run_main_loop(self, current_lvl: str) -> dict:
+    def run_main_loop(self, current_lvl: str) -> dict[str, int | bool]:
         letter_position = Point(880, 350)
         second_letter_flag = False
         sleep(2)
@@ -373,6 +420,3 @@ class BattleManager:
             "defeat_flag": self.defeat_flag,
             "win_flag": self.win_flag,
         }
-
-
-# battle_manager_instance = BattleManager()

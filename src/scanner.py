@@ -3,12 +3,13 @@ from time import time
 
 import cv2
 import numpy as np
-import pytesseract
+import pytesseract  # type: ignore
 from loguru import logger
 from pyautogui import pixel, screenshot
 
-from data import Area, Point
+from data import Area, CardData, Point
 from functions import approx_equal_pixel
+from tmp import SignaturePixels
 
 
 @dataclass
@@ -25,18 +26,20 @@ class Scanner:
         )
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         cv2.imwrite(f"./dbg_img/{str(time())}_scan_area.png", image)
-        text = pytesseract.image_to_string(image, config="--psm 13 digits")
-        number_str = "".join(filter(str.isdigit, text))
+        text = pytesseract.image_to_string(image, config="--psm 13 digits")  # type: ignore
+        number_str = "".join(filter(str.isdigit, text))  # type: ignore
         return int(number_str) if number_str else 0
 
     def spam_extract(self, area: Area, count: int) -> list[int]:
-        numbers = []
-        for i in range(count):
+        numbers: list[int] = []
+        for _ in range(count):
             numbers.append(self.scan_area(area))
         logger.debug(f"numbers= {numbers}")
         return numbers
 
-    def scan_stars(self, cards: dict, type: int) -> dict:
+    def scan_stars(
+        self, cards: dict[tuple[int, int], CardData], type: int
+    ) -> dict[tuple[int, int], CardData]:
         """type: 0: top, 1: bottom"""
 
         # 1143, 981 первая звезда слева сверху, между соседними картами x = 63, y = 45, между звёздами х = 11, x = 6
@@ -75,21 +78,20 @@ class Scanner:
 
     # def scan_cards_names(self, cards: dict) -> dict:
 
-    """def scan_secret_shop_items(self):
+    def scan_secret_shop_items(self) -> list[SignaturePixels]:
         secret_shop_00_position = (1008, 842)
-        secret_shop_pixel_list = []
-        for n in range(5):
-            secret_shop_cell_pixel_list = []
-            for i in (1, 2):
-                for j in (1, 2):
-                    secret_shop_cell_pixel_list.append(
-                        pixel(
-                            secret_shop_00_position[0] + 10 * i,
-                            secret_shop_00_position[1] + 10 * j,
-                        )
-                    )
-            secret_shop_pixel_list.append(secret_shop_cell_pixel_list)
-        return secret_shop_pixel_list"""
+        secret_shop_pixel_list: list[SignaturePixels] = []
+        for _ in range(5):
+            pixel_list: list[tuple[int, int, int]] = []
+            for i, j in [(0, 0), (0, 1), (1, 0), (1, 1)]:
+                pixel_list.append(
+                    pixel(
+                        secret_shop_00_position[0] + i * 10,
+                        secret_shop_00_position[1] + j * 10,
+                    ),
+                )
+            secret_shop_pixel_list.append(SignaturePixels(*pixel_list))
+        return secret_shop_pixel_list
 
 
 scanner_instance = Scanner()

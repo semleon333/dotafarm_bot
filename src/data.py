@@ -28,7 +28,7 @@ class Area:
     w: int
     h: int
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 4
 
     def __iter__(self):
@@ -37,7 +37,7 @@ class Area:
         yield self.w
         yield self.h
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"(Area{self.x}, {self.y}, {self.w}, {self.h})"
 
     @property

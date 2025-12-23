@@ -1,7 +1,6 @@
 from time import sleep
 
-from loguru import logger
-from pyautogui import mouseDown, mouseUp, moveTo, pixel
+from pyautogui import mouseDown, mouseUp, moveTo
 
 from data import Point
 
@@ -27,7 +26,7 @@ def click(
     sleep(0.1)
     moveTo(point.to_tuple, duration=duration)
     sleep(0.1)
-    for i in range(clicks):
+    for _ in range(clicks):
         mouseDown(button=button)
         sleep(0.1)
         mouseUp(button=button)
@@ -36,13 +35,13 @@ def click(
     sleep(0.1)
 
 
-def click_slow(*args, **kwargs) -> None:
+def click_slow(*args, **kwargs) -> None:  # type: ignore
     defaults = {"duration": 0.5}
-    final_kwargs = kwargs.copy()
+    final_kwargs = kwargs.copy()  # type: ignore
     for key, value in defaults.items():
         if key not in final_kwargs:
             final_kwargs[key] = value
-    click(*args, **final_kwargs)
+    click(*args, **final_kwargs)  # type: ignore
 
 
 '''

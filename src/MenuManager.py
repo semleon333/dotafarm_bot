@@ -7,16 +7,16 @@ from loguru import logger
 import var
 from BattleManager import BattleManager
 from data import menu_data
-from functions import click, click_slow
+from functions import click
 
 
-def load(path: str) -> dict:
+def load(path: str) -> dict[str, int]:
     with open(path, "r", encoding="utf-8") as f:
         s = json.load(f)
     return s
 
 
-def save(json_dict: dict, path: str):
+def save(json_dict: dict[str, int], path: str) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(json_dict, f, indent=4, ensure_ascii=False)
 
@@ -25,10 +25,10 @@ def save(json_dict: dict, path: str):
 class MenuManager:
     _battle_manager = None
     _menu_data = menu_data
-    _clearance: dict = field(default_factory=dict)
+    _clearance: dict[str, int] = field(default_factory=dict[str, int])
     _wins_count: int = 0
     _defeats_count: int = 0
-    war_results: dict = field(default_factory=dict)
+    war_results: dict[str, int | bool] = field(default_factory=dict[str, int | bool])
 
     def _get_lvl_by_clearance(self) -> None:
         for lvl in self._clearance:
@@ -44,7 +44,7 @@ class MenuManager:
 
     def run_main_loop(
         self, one_lvl_spam: bool = False, current_lvl: str = "101"
-    ) -> dict:
+    ) -> dict[str, int | bool]:
         logger.info("loaded")
         while True:
             if var.EXIT_FLAG:
@@ -72,9 +72,9 @@ class MenuManager:
                 sleep(5)
                 self._battle_manager.set_cycle_start_time()
                 self.war_results = self._battle_manager.run_main_loop(current_lvl)
-                if war_results["win_flag"]:
+                if self.war_results["win_flag"]:
                     self._wins_count += 1
-                if war_results["defeat_flag"]:
+                if self.war_results["defeat_flag"]:
                     self._defeats_count += 1
                 self.war_results["wins_count"] = self._wins_count
                 self.war_results["defeats_count"] = self._defeats_count
