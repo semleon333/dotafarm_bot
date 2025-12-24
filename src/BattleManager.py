@@ -84,7 +84,7 @@ class BattleManager:
         }
         self.summon_data = [
             SummonData("resource", Point(450, 860), (221, 181, 11)),
-            SummonData("magic_bottle", Point(530, 860), (4, 233, 251), 8),
+            SummonData("magic_bottle", Point(530, 860), (4, 233, 251), 6),
             SummonData("card", Point(610, 860), (169, 131, 210), 8),
             # stars = [1 , 2 , 2, 3, 3, 4, 4, 5]
             SummonData("advanced", Point(690, 860), (72, 48, 26)),
