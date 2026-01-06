@@ -9,7 +9,3 @@ atomic = true
 profile = "black"
 line_length = 88
 skip_gitignore = true
-
-[[tool.mypy.overrides]]
-module = ["pytesseract.*"]
-follow_untyped_imports = true

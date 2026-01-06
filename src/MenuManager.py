@@ -30,13 +30,15 @@ class MenuManager:
     _defeats_count: int = 0
     war_results: dict[str, int | bool] = field(default_factory=dict[str, int | bool])
 
-    def _get_lvl_by_clearance(self) -> None:
+    def _get_lvl_by_clearance(self, start_lvl: str) -> str:
+        current_lvl = start_lvl
         for lvl in self._clearance:
-            if int(lvl) > 300 and self._clearance[lvl] < 10:
+            if int(lvl) >= int(start_lvl) and self._clearance[lvl] < 10:
                 logger.debug(f"{lvl}: {self._clearance[lvl]}")
-                self.current_lvl = lvl
+                current_lvl = lvl
                 self._clearance[lvl] += 1
-                return
+                break
+        return current_lvl
 
     def _click_eggs(self, count: tuple[int, int, int]) -> None:
         for i in range(3):
@@ -54,8 +56,9 @@ class MenuManager:
                 self._battle_manager = BattleManager()
 
                 if not one_lvl_spam:
-                    self._clearance = load("clearance.json")
-                    self._get_lvl_by_clearance()  # clearance +1
+                    self._clearance = load("config/clearance.json")
+                    current_lvl = self._get_lvl_by_clearance(current_lvl)
+                    # clearance +1
                 click(self._menu_data.go_war)
                 click(
                     self._menu_data.get_tower_center(int(current_lvl[0])),
@@ -81,7 +84,7 @@ class MenuManager:
                 if var.EXIT_FLAG:
                     return self.war_results
                 if not one_lvl_spam:
-                    save(self._clearance, "clearance.json")
+                    save(self._clearance, "config/clearance.json")
                 click(self._menu_data.endgame.exit1_pos)
                 sleep(1)
                 click(self._menu_data.endgame.exit2_pos)

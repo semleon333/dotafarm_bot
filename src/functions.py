@@ -22,7 +22,7 @@ def click(
     duration: float = 0.15,
 ) -> None:
     """0.1 > move > 0.1 > click..interval..click > 0.1"""
-    print(point, clicks, interval, button, duration)
+    # print(point, clicks, interval, button, duration)
     sleep(0.1)
     moveTo(point.to_tuple, duration=duration)
     sleep(0.1)

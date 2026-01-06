@@ -70,8 +70,8 @@ class MenuData:
         Point(1160, 360),
         Point(950, 150),
         Point(650, 250),
-        Point(1, 1),
-        Point(1, 1),
+        Point(300, 310),
+        Point(550, 330),
     )
     _tower_lvls: tuple[Point, ...] = (
         Point(1490, 675),
