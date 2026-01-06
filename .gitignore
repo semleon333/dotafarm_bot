@@ -10,6 +10,8 @@ env/
 /logs/
 *.log
 
+/config
+
 .vscode/
 .idea/
 *.swp
