@@ -14,17 +14,17 @@ def parse_args():
         "--clearance",
         action="store_true",
         default=False,
-        help="Прохождение башен начиная с 301 до 10 раз, основываясь на clearance.json",
+        help="Прохождение башен начиная с --lvl до 10 раз, основываясь на clearance.json",
     )
     parser.add_argument(
         "--lvl",
-        default="408",
+        default="301",
         help="Башня и уровень (101-908)",
     )
     return parser.parse_args()
 
 
-def on_press(key):
+def on_press(key: keyboard.Key | keyboard.KeyCode | None) -> None:
     try:
         if key == keyboard.Key.esc:
             logger.debug("Exit")
@@ -51,7 +51,8 @@ if __name__ == "__main__":
     args = parse_args()
     logger.debug(f"Clearence: {args.clearance}, Level: {args.lvl}")
     resaults = menu_manager_instance.run_main_loop(
-        one_lvl_spam=not args.clearance, current_lvl=args.lvl
+        one_lvl_spam=not args.clearance,
+        current_lvl=args.lvl,
     )
     for res in resaults:
         logger.debug(f"{res}:{resaults[res]}")

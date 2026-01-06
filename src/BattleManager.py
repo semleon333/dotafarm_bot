@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from sys import exit
 from time import sleep, time
 
 import cv2
@@ -9,26 +8,30 @@ from pyautogui import pixel, press, screenshot
 
 import var
 from data import CardData, Point, SummonData, menu_data
-from functions import click, click_slow
+from functions import click
+from Inventory import HerocardData, InventoryManager, shop_db
 from scanner import scanner_instance
 
 
 @dataclass
 class BattleManager:
     scanner = scanner_instance
-    summon_data: list = field(default_factory=list)
+    summon_data: list[SummonData] = field(default_factory=list[SummonData])
     _menu_data = menu_data
+    inventory: InventoryManager = field(default_factory=InventoryManager)
+    courier_inventory: InventoryManager = field(default_factory=InventoryManager)
 
-    _bottle_use: int = 0
     win_flag: bool = False
     defeat_flag: bool = False
     _cycle_start_time: float = time()
-    _cycle_runtime: float = 0
+    _tick30s_timer: int = 0
+    _tick2m_timer: int = 0
+    _cycle_runtime: float = 0.0
     _gold: int = 0
     _wood: int = 0
     _kills: int = 0
     _branch_lvl: int = 1  # 1, 2, ..., 9
-    _branch_lvl_plus: int = 0  # +1, +2, ...
+    _branch_lvl_plus: int = 0  # 0, +1, +2, +3, +4, +5, ->up
     _branch_cost: tuple[int, ...] = (
         53,
         200,
@@ -56,17 +59,36 @@ class BattleManager:
     #
     HOTKEY_00: str = "z"
     #
-    _inventory_slots_click_positions: dict = field(default_factory=dict)
-    main_cards: dict[tuple[int, int], CardData] = field(default_factory=dict)
-    main_cards_bottom: dict[tuple[int, int], CardData] = field(default_factory=dict)
-    courier_cards: dict[tuple[int, int], CardData] = field(default_factory=dict)
-    courier_cards_bottom: dict[tuple[int, int], CardData] = field(default_factory=dict)
-    all_main_cards: dict[tuple[int, int], CardData] = field(default_factory=dict)
+    _inventory_slots_click_positions: dict[tuple[int, int], Point] = field(
+        default_factory=dict[tuple[int, int], Point]
+    )
+    main_cards: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    main_cards_bottom: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    courier_cards: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    courier_cards_bottom: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    all_main_cards: dict[tuple[int, int], CardData] = field(
+        default_factory=dict[tuple[int, int], CardData]
+    )
+    _cards_buying_count: dict[int, int] = field(default_factory=dict[int, int])
 
     def __post_init__(self):
+        self._cards_buying_count = {
+            1: 1,
+            2: 1,
+            3: 1,
+            4: 1,
+        }
         self.summon_data = [
             SummonData("resource", Point(450, 860), (221, 181, 11)),
-            SummonData("magic_bottle", Point(530, 860), (4, 233, 251), 8),
+            SummonData("magic_bottle", Point(530, 860), (4, 233, 251), 6),
             SummonData("card", Point(610, 860), (169, 131, 210), 8),
             # stars = [1 , 2 , 2, 3, 3, 4, 4, 5]
             SummonData("advanced", Point(690, 860), (72, 48, 26)),
@@ -124,17 +146,12 @@ class BattleManager:
         self._kills = self.scanner.scan_area(self.scanner.kills)
 
     def _update_main_cards_stars(self) -> None:
-        self.all_main_cards = self.scanner.scan_stars(
-            self.main_cards, 0
-        ) | self.scanner.scan_stars(self.main_cards_bottom, 1)
-        cards = self.all_main_cards
-        logger.debug(
-            f"\n\t{cards[0,1].stars}\t{cards[0,2].stars}\n{cards[1,0].stars}\t{cards[1,1].stars}\t{cards[1,2].stars}\n{cards[2,0].stars}\t{cards[2,1].stars}\t{cards[2,2].stars}"
-        )
+        self.inventory = self.scanner.scan_stars(self.inventory)
+        logger.debug(f"\n{self.inventory.to_matrix_string}")
 
-    def _manage_click_bottle(self) -> None:
-        if self._cycle_runtime // 30 > self._bottle_use and not self._check_death():
-            self._bottle_use = int(self._cycle_runtime) // 30
+    def _tick30s(self) -> None:
+        if self._cycle_runtime > self._tick30s_timer + 30 and not self._check_death():
+            self._tick30s_timer += 30
             click(Point(1360, 990))
 
     def _manage_midas(self) -> None:
@@ -165,10 +182,10 @@ class BattleManager:
         if self._branch_lvl < 9:
             while (
                 self._branch_lvl_plus < 6
-                and self._gold > self._branch_cost[self._branch_lvl - 1]
+                and self._gold > self._branch_cost[self._branch_lvl - 1] * 2
                 and not self._check_death()
             ):
-                logger.debug(f"{self._branch_lvl}.{self._branch_lvl_plus}")
+                logger.debug(f"->{self._branch_lvl}.{self._branch_lvl_plus}")
                 press(self.HOTKEY_00)
                 self._branch_lvl_plus += 1
                 self._gold -= self._branch_cost[self._branch_lvl - 1]
@@ -184,7 +201,7 @@ class BattleManager:
             self._branch_lvl_plus += 1
             self._gold -= self._branch_cost[self._branch_lvl - 1]
         logger.debug(
-            f" -> branch: {self._branch_lvl}.{self._branch_lvl_plus}, gold: {self._gold}"
+            f" --> branch: {self._branch_lvl}.{self._branch_lvl_plus}, gold: {self._gold}"
         )
 
     def _manage_summon_bar(self) -> None:
@@ -200,57 +217,116 @@ class BattleManager:
             logger.debug(f"count= {summon.summon_count}")
 
     def _manage_main_cards(self) -> None:
-        cards = self.all_main_cards
-        runtime = self._cycle_runtime
-        gold = self._gold
-        _cards_shop_pos = self._cards_shop_positions
-        # logger.debug(f"\n\t{cards[0,1].stars}\t{cards[0,2].stars}\n{cards[1,0].stars}\t{cards[1,1].stars}\t{cards[1,2].stars}\n{cards[2,0].stars}\t{cards[2,1].stars}\t{cards[2,2].stars}")
-        card_stars = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-        for card in cards:
-            match cards[card].stars:
-                case 0:
-                    card_stars[0] += 1
+        def final_buying_cards(self: BattleManager):
+            logger.debug(f"card_count_by_stars: {card_count_by_stars}")
+            match card_count_by_stars[stars]:
                 case 1:
-                    card_stars[1] += 1
+                    if self._gold > (price1 + price2):
+                        click(self._cards_shop_positions[stars - 1])
+                        click(self._cards_shop_positions[stars - 1])
+                        self._cards_buying_count[stars] += 2
+                        self._gold -= price1 + price2
                 case 2:
-                    card_stars[2] += 1
+                    if self._gold > price1:
+                        click(self._cards_shop_positions[stars - 1])
+                        self._cards_buying_count[stars] += 1
+                        self._gold -= price1
+                case _:
+                    pass
+
+        # card price: 1* liner, 2-4* 0==1
+        price_by_star = {1: 500, 2: 2000, 3: 8000, 4: 32000}
+
+        # logger.debug(f"\n\t{cards[0,1].stars}\t{cards[0,2].stars}\n{cards[1,0].stars}\t{cards[1,1].stars}\t{cards[1,2].stars}\n{cards[2,0].stars}\t{cards[2,1].stars}\t{cards[2,2].stars}")
+        card_count_by_stars = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        for _, _, slot in self.inventory:
+            match slot.star:
+                case 0:
+                    card_count_by_stars[0] += 1
+                case 1:
+                    card_count_by_stars[1] += 1
+                case 2:
+                    card_count_by_stars[2] += 1
                 case 3:
-                    card_stars[3] += 1
+                    card_count_by_stars[3] += 1
                 case 4:
-                    card_stars[4] += 1
+                    card_count_by_stars[4] += 1
                 case 5:
-                    card_stars[5] += 1
+                    card_count_by_stars[5] += 1
+                case _:
+                    pass
 
-        if runtime > 2 * 60:
-            if 0 < card_stars[1] < 3 and gold > 1000:
-                for i in range(3 - card_stars[1]):
-                    click(_cards_shop_pos[0])
+        logger.debug(f"card_count_by_stars: {card_count_by_stars}")
 
-        if runtime > 10 * 60:  # 12
-            if 1 < card_stars[2] < 3 and gold > 8000:
-                for i in range(3 - card_stars[1]):
-                    click(_cards_shop_pos[1])
+        if self._cycle_runtime > 2 * 60:
+            stars = 1
+            price1 = self._cards_buying_count[stars] * price_by_star[stars]
+            price2 = price1 + price_by_star[stars]
+            if card_count_by_stars[0] > 2:
+                final_buying_cards(self)
 
-        if runtime > 18 * 60:  # 20
-            if card_stars[3] == 1 and gold > 40000:
-                click(
-                    _cards_shop_pos[2],
-                    clicks=2,
-                    interval=1,
-                    duration=0.5,
-                )
-            if card_stars[3] == 2 and gold > 20000:
-                click(_cards_shop_pos[2])
+        if self._cycle_runtime > 8 * 60:  # 12
+            stars = 2
+            price1 = self._cards_buying_count[stars] * price_by_star[stars]
+            price2 = price1 + price_by_star[stars]
+            if card_count_by_stars[0] > 2:
+                final_buying_cards(self)
 
-        if runtime > 20 * 60:  # 25
-            if card_stars[0] > 4 and gold > 32000:
-                click(_cards_shop_pos[3])
-            if card_stars[0] > 1 and gold > 64000 and self._branch_lvl == 9:
-                click(_cards_shop_pos[3])
+        if self._cycle_runtime > 14 * 60:  # 20
+            stars = 3
+            price1 = self._cards_buying_count[stars] * price_by_star[stars]
+            price2 = price1 + price_by_star[stars]
+            if card_count_by_stars[0] > 2:
+                final_buying_cards(self)
+
+        if self._cycle_runtime > 20 * 60:  # 25
+            stars = 4
+            price1 = self._cards_buying_count[stars] * price_by_star[stars]
+            price2 = price1 + price_by_star[stars]
+            if card_count_by_stars[0] > 1:
+                final_buying_cards(self)
+
+    def _manage_shop(self):
+        if self._cycle_runtime > self._tick2m_timer + 120:
+            self._tick2m_timer += 120
+        if (
+            self._cycle_runtime < self._tick2m_timer + 20
+            and self._cycle_runtime > self._tick2m_timer + 100
+        ):
+            return
+        ss_items = self.scanner.scan_secret_shop_items()
+        for ss_item in ss_items:
+            for const_item in shop_db:
+                if ss_item == const_item.name:
+                    pass
+                    # match ss_item:
+
+    def _manage_inventory(self):
+        items_list = self.scanner.scan_inventory_items()
+        # logger.debug(items_list)
+        for row, col, slot in self.inventory:
+            flag = False
+            for item in shop_db:
+                if item.name == items_list[row * 3 + col]:
+                    logger.debug(f"\n{slot}\n{item}\n")
+                    slot.item = item
+                    flag = True
+                    break
+            if not flag:
+                # logger.debug(f"\n{slot}\n{items_list[row * 3 + col]}\n")
+                slot.item = HerocardData(items_list[row * 3 + col])
+
+        for row, col, slot in self.inventory:
+            if not self._check_death():
+                match slot.item.name:
+                    case "The Devouring Pill next door":
+                        self.inventory.slot_click(col, row, 2, 0.05, "SECONDARY")
+                    case _:
+                        pass
 
     def _check_defeat(self, current_lvl: str) -> None:
         if (
-            pixel(1555, 202) == (141, 98, 198)
+            pixel(1555, 202) == (141, 98, 198)  # endgame pixel (212,84,82)
             and str(max(self.scanner.spam_extract(self.scanner.defeat, 3)))
             == current_lvl
         ):
@@ -278,9 +354,8 @@ class BattleManager:
         else:
             click(Point(1600, 530), button="SECONDARY")
 
-    def run_main_loop(self, current_lvl: str) -> dict:
+    def run_main_loop(self, current_lvl: str) -> dict[str, int | bool]:
         letter_position = Point(880, 350)
-        second_letter_flag = False
         sleep(2)
         click(
             self._minimap_start_positions[0],
@@ -314,40 +389,35 @@ class BattleManager:
                 if self._cycle_runtime > 1810:
                     self.win_flag = True
                     break
-                if (
-                    self._cycle_runtime > 60
-                    and not second_letter_flag
-                    and not self._check_death()
-                ):
-                    click(
-                        self._inventory_slots_click_positions[0, 1],
-                        duration=0.5,
-                    )
-                    click(
-                        self._inventory_slots_click_positions[1, 0],
-                        duration=0.5,
-                    )
-                    click(
-                        self._inventory_slots_click_positions[1, 1],
-                        duration=0.5,
-                    )
-                    click(
-                        self._inventory_slots_click_positions[1, 2],
-                        duration=0.5,
-                    )
-                    click(letter_position)
-                    second_letter_flag = True
 
                 self._walking()
                 self._update_gold()
                 self._update_wood()
-                logger.debug(f"g={self._gold} w={self._wood}")
-                self._manage_click_bottle()
+                self._update_kills()
+                logger.debug(f"g={self._gold} w={self._wood} k={self._kills}")
+                self._tick30s()
                 self._manage_midas()
                 self._manage_branch()
                 self._manage_summon_bar()
-                self._update_main_cards_stars()
-                self._manage_main_cards()
+                # self._manage_shop()
+
+                if not self._check_death():
+                    timer = time() - self._cycle_start_time
+                    self._manage_inventory()
+                    for row, col, slot in self.inventory:
+                        if slot.item.name == "letter" and not self._check_death():
+                            self.inventory.slot_click(col, row)
+                            click(letter_position)
+                    self._update_main_cards_stars()
+                    self._manage_main_cards()
+                    logger.debug(
+                        f"inventory managment time: {time() - self._cycle_start_time - timer}"
+                    )
+
+                # self._tick120s()
+                # click(Point(1360, 870))
+                # sleep(1)
+                # self.scanner.scan_secret_shop_items()
                 press("f", 3, 0.2)
                 logger.debug("")
         logger.debug(f"defeat: {self.defeat_flag} win: {self.win_flag}")
@@ -373,6 +443,3 @@ class BattleManager:
             "defeat_flag": self.defeat_flag,
             "win_flag": self.win_flag,
         }
-
-
-# battle_manager_instance = BattleManager()
