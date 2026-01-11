@@ -130,7 +130,7 @@ class Scanner:
             if name == new_image_hash:
                 # logger.debug("dublicate image")
                 return "unknown"
-        cv2.imwrite(f"{db_dir_path}/{new_image_hash}.png", new_image)
+        cv2.imwrite(f"{db_dir_path}_new/{new_image_hash}.png", new_image)
         return "new"
 
     def _scan_slots(
