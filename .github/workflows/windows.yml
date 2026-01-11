@@ -2,7 +2,9 @@ name: Build EXE for Windows
 
 on:
   push:
-    branches: [ main, test ]   
+    branches: 
+      - main
+      - test
   workflow_dispatch:    
 
 jobs:
