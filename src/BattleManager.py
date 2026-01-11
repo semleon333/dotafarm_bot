@@ -9,7 +9,7 @@ from pyautogui import pixel, press, screenshot
 import var
 from data import CardData, Point, SummonData, menu_data
 from functions import click
-from Inventory import HerocardData, InventoryManager, shop_db
+from Inventory import HerocardData, InventoryManager, herocard_list, shop_db
 from scanner import scanner_instance
 
 
@@ -182,7 +182,7 @@ class BattleManager:
         if self._branch_lvl < 9:
             while (
                 self._branch_lvl_plus < 6
-                and self._gold > self._branch_cost[self._branch_lvl - 1] * 2
+                and self._gold > self._branch_cost[self._branch_lvl - 1] * 4
                 and not self._check_death()
             ):
                 logger.debug(f"->{self._branch_lvl}.{self._branch_lvl_plus}")
@@ -240,39 +240,41 @@ class BattleManager:
         # logger.debug(f"\n\t{cards[0,1].stars}\t{cards[0,2].stars}\n{cards[1,0].stars}\t{cards[1,1].stars}\t{cards[1,2].stars}\n{cards[2,0].stars}\t{cards[2,1].stars}\t{cards[2,2].stars}")
         card_count_by_stars = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         for _, _, slot in self.inventory:
-            match slot.star:
-                case 0:
-                    card_count_by_stars[0] += 1
-                case 1:
-                    card_count_by_stars[1] += 1
-                case 2:
-                    card_count_by_stars[2] += 1
-                case 3:
-                    card_count_by_stars[3] += 1
-                case 4:
-                    card_count_by_stars[4] += 1
-                case 5:
-                    card_count_by_stars[5] += 1
-                case _:
-                    pass
+            if slot.item.name == "empty":
+                card_count_by_stars[0] += 1
+                continue
+            if slot.item.name in herocard_list:
+                match slot.star:
+                    case 1:
+                        card_count_by_stars[1] += 1
+                    case 2:
+                        card_count_by_stars[2] += 1
+                    case 3:
+                        card_count_by_stars[3] += 1
+                    case 4:
+                        card_count_by_stars[4] += 1
+                    case 5:
+                        card_count_by_stars[5] += 1
+                    case _:
+                        pass
 
         logger.debug(f"card_count_by_stars: {card_count_by_stars}")
 
-        if self._cycle_runtime > 2 * 60:
+        if self._cycle_runtime > 90:
             stars = 1
             price1 = self._cards_buying_count[stars] * price_by_star[stars]
             price2 = price1 + price_by_star[stars]
             if card_count_by_stars[0] > 2:
                 final_buying_cards(self)
 
-        if self._cycle_runtime > 8 * 60:  # 12
+        if self._cycle_runtime > 6 * 60:  # 12
             stars = 2
             price1 = self._cards_buying_count[stars] * price_by_star[stars]
             price2 = price1 + price_by_star[stars]
             if card_count_by_stars[0] > 2:
                 final_buying_cards(self)
 
-        if self._cycle_runtime > 14 * 60:  # 20
+        if self._cycle_runtime > 10 * 60:  # 20
             stars = 3
             price1 = self._cards_buying_count[stars] * price_by_star[stars]
             price2 = price1 + price_by_star[stars]
