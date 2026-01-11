@@ -218,8 +218,8 @@ class BattleManager:
 
     def _manage_main_cards(self) -> None:
         def final_buying_cards(self: BattleManager):
-            logger.debug(f"card_count_by_stars: {card_count_by_stars}")
-            match card_count_by_stars[stars]:
+            logger.debug(f"herocard_count_by_stars: {herocard_count_by_stars}")
+            match herocard_count_by_stars[stars]:
                 case 1:
                     if self._gold > (price1 + price2):
                         click(self._cards_shop_positions[stars - 1])
@@ -238,54 +238,54 @@ class BattleManager:
         price_by_star = {1: 500, 2: 2000, 3: 8000, 4: 32000}
 
         # logger.debug(f"\n\t{cards[0,1].stars}\t{cards[0,2].stars}\n{cards[1,0].stars}\t{cards[1,1].stars}\t{cards[1,2].stars}\n{cards[2,0].stars}\t{cards[2,1].stars}\t{cards[2,2].stars}")
-        card_count_by_stars = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        herocard_count_by_stars = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         for _, _, slot in self.inventory:
             if slot.item.name == "empty":
-                card_count_by_stars[0] += 1
+                herocard_count_by_stars[0] += 1
                 continue
             if slot.item.name in herocard_list:
                 match slot.star:
                     case 1:
-                        card_count_by_stars[1] += 1
+                        herocard_count_by_stars[1] += 1
                     case 2:
-                        card_count_by_stars[2] += 1
+                        herocard_count_by_stars[2] += 1
                     case 3:
-                        card_count_by_stars[3] += 1
+                        herocard_count_by_stars[3] += 1
                     case 4:
-                        card_count_by_stars[4] += 1
+                        herocard_count_by_stars[4] += 1
                     case 5:
-                        card_count_by_stars[5] += 1
+                        herocard_count_by_stars[5] += 1
                     case _:
                         pass
 
-        logger.debug(f"card_count_by_stars: {card_count_by_stars}")
+        logger.debug(f"herocard_count_by_stars: {herocard_count_by_stars}")
 
         if self._cycle_runtime > 90:
             stars = 1
             price1 = self._cards_buying_count[stars] * price_by_star[stars]
             price2 = price1 + price_by_star[stars]
-            if card_count_by_stars[0] > 2:
+            if herocard_count_by_stars[0] > 2:
                 final_buying_cards(self)
 
         if self._cycle_runtime > 6 * 60:  # 12
             stars = 2
             price1 = self._cards_buying_count[stars] * price_by_star[stars]
             price2 = price1 + price_by_star[stars]
-            if card_count_by_stars[0] > 2:
+            if herocard_count_by_stars[0] > 2:
                 final_buying_cards(self)
 
         if self._cycle_runtime > 10 * 60:  # 20
             stars = 3
             price1 = self._cards_buying_count[stars] * price_by_star[stars]
             price2 = price1 + price_by_star[stars]
-            if card_count_by_stars[0] > 2:
+            if herocard_count_by_stars[0] > 2:
                 final_buying_cards(self)
 
         if self._cycle_runtime > 20 * 60:  # 25
             stars = 4
             price1 = self._cards_buying_count[stars] * price_by_star[stars]
             price2 = price1 + price_by_star[stars]
-            if card_count_by_stars[0] > 1:
+            if herocard_count_by_stars[0] > 1:
                 final_buying_cards(self)
 
     def _manage_shop(self):
